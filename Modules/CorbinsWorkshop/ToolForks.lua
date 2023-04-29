@@ -43,6 +43,7 @@ function ToolForks.internal.InitializeToolForkPositions()
 	data.ZBump = 0.100
 	data.TestAtZMax = false
 	data.ZClearanceWithNoTool = 0.0
+	data.ShouldUseCasePressurization = false
 	ToolForks.ToolForkPositions = {}
 	ToolForks.ToolForkPositions.ToolForkData = data
 end
@@ -62,6 +63,15 @@ end
 function ToolForks.GetZClearanceWithNoTool() 
 	return ToolForks.GetToolForkData().ZClearanceWithNoTool
 end
+
+function ToolForks.SetShouldUseCasePressurization(value)
+	ToolForks.GetToolForkData().ShouldUseCasePressurization= value
+end
+
+function ToolForks.GetShouldUseCasePressurization() 
+	return ToolForks.GetToolForkData().ShouldUseCasePressurization
+end
+
 
 function ToolForks.SetSlideDistance(value) 
 	ToolForks.GetToolForkData().SlideDistance = value
@@ -99,7 +109,7 @@ end
 function ToolForks.Log(message, ...)
 	local eventMessage = string.format(message, ...)	
 	-- Comment out for speed; uncomment for more logging
-	print(eventMessage)
+--	print(eventMessage)
 	mc.mcCntlLog(inst, eventMessage, "", -1)
 --	mc.mcCntlSetLastError(inst, eventMessage) -- for debugging	
 end
@@ -107,7 +117,7 @@ end
 function ToolForks.Error(message, ...)
 	-- Log and set the error for better tracing of problems
 	local eventMessage = string.format(message, ...)	
-	print(eventMessage)
+--	print(eventMessage)
 	mc.mcCntlLog(inst, eventMessage, "", -1)
 	mc.mcCntlSetLastError(inst, eventMessage)
 end
@@ -180,6 +190,10 @@ function ToolForks.LoadToolForkPositions()
 
 			if ToolForks.ToolForkPositions.ToolForkData.ZClearanceWithNoTool == nil then
 				ToolForks.ToolForkPositions.ToolForkData.ZClearanceWithNoTool = 0.0 -- added later; default to z 0
+			end
+			
+			if ToolForks.ToolForkPositions.ToolForkData.ShouldUseCasePressurization  == nil then
+				ToolForks.ToolForkPositions.ToolForkData.ShouldUseCasePressurization = false
 			end
 
 			ToolForks.Log("Loaded ToolForks. Count: %d", count)			

@@ -1,10 +1,21 @@
+-- CWUtilities 
+-- Corbin's Workshop Utilities
+-- by Corbin Dunn
+-- https://www.corbinsworkshop.com
+-- https://www.corbinstreehouse.com
+-- April 2023
+-- (c) 2023 Corbin Dunn
+-- Software provided as-is. For redistribution rights, please contact me. 
+-- No warranty is made on this software working correctly.
 
+--package.path = package.path .. ";./Modules/CorbinsWorkshop/?.lua"
+local inifile = require 'inifile'
 
 local CWUtilities = {
 	toolHeightsWereActive = false,
 	startingZ = 0.0,
 	startingMachineZ = 0.0,
-	REG_USE_CASE_PRESSURIZATION = "CorbinsWorkshop/UseCasePressurization"
+	startingTime = 0.0,
 }
 
 -- this output signal is used to turn on the case pressurization for the ATC spindle
@@ -12,56 +23,63 @@ local CD_SIG_PRESSURIZED_AIR = mc.OSIG_OUTPUT7
 
 CWUtilities.inst = mc.mcGetInstance("CWUtilities")
 
-function tobool(str)
-	if str == "true" or str == "1" then
-		return true
-	--elseif str == "false" or str == "0" then -- well...not needed if i always return false on everything else
-	--	return false
-	else
-		return false
-	end
+function CWUtilities.GCodeStarted()
+	CWUtilities.startingTime = os.clock()
 end
 
-function CWUtilities.GetRegisterValueAsBool(strName, defaultValue)
+function CWUtilities.LoadRuntimesTable()
+	local path =  CWUtilities.GetFileRuntimesPath()
+	local file = io.open(path, "r")
+	local fileRuntimes = nil
+	if file ~= nil then
+		file:close()
+		fileRuntimes = inifile.parse(path)
+	else 
+		fileRuntimes = {} -- empty table
+	end	
+	return fileRuntimes
+end
+
+
+function CWUtilities.GetFileRuntimesPath() 
 	local inst = CWUtilities.inst
-
-	local hreg = mc.mcRegGetHandle(inst, strName)
-	local resultAsString = mc.mcRegGetValueString(hreg)
-	if resultAsString ~= "" then
-		return tobool(resultAsString)
-	end
-	-- Load the ini file, in case it isn't loaded, and then save the value to the register
-	resultAsString = mc.mcProfileGetString(inst, "Registers", strName, "")
-	if resultAsString ~= "" then
-		-- It was saved in the ini file, so initialize the register value
-		mc.mcRegSetValueString(hreg, resultAsString)
-		return tobool(resultAsString)
-	end
-	
-	-- Not yet in the ini file, so save it
-	CWUtilities.SetRegisterValueAsBool(strName, defaultValue)
-	
-	return defaultValue
+	local profile = mc.mcProfileGetName(inst)
+	local machDirPath = mc.mcCntlGetMachDir(inst)
+	-- not sure why tls extension is used, but the tool table does it..so I'm doing it
+	local path = machDirPath .. "\\Profiles\\" .. profile .. "\\Runtimes.ini" 
+	return path
 end
 
-function CWUtilities.SetRegisterValueAsBool(strName, value)
+
+function CWUtilities.SaveDurationForFile(filename, duration)
+	local fileRuntimes = CWUtilities.LoadRuntimesTable()
+	-- append/overwrite 
+	fileRuntimes[filename] = duration	
+		
+	inifile.save(path, fileRuntimes)
+end
+
+function CWUtilities.GCodeEnded()
 	local inst = CWUtilities.inst
-	local hreg = mc.mcRegGetHandle(inst, strName)
-	local valueAsString = tostring(value)
-	mc.mcRegSetValueString(hreg, valueAsString)
-	-- also save it to the machine.ini file right now! I hate things getting lost.
-	mc.mcProfileWriteString(inst, "Registers", strName, valueAsString)
-	mc.mcProfileFlush(inst)	
+	local filename = mc.mcCntlGetGcodeFileName(inst)
+	if filename ~= nil and filename ~= "" then
+		local duration= os.clock() - CWUtilities.startingTime -- in seconds
+		CWUtilities.SaveDurationForFile(filename, duration)
+	end	
 end
 
-function CWUtilities.GetShouldUseCasePressurization()
-	return CWUtilities.GetRegisterValueAsBool(CWUtilities.REG_USE_CASE_PRESSURIZATION, false)
+function CWUtilities.GetLastRuntimeForCurrentFile()
+	local inst = CWUtilities.inst
+	local filename = mc.mcCntlGetGcodeFileName(inst)
+	if filename ~= nil and filename ~= "" then
+		local fileRuntimes = CWUtilities.LoadRuntimesTable()
+		local duration = fileRuntimes[filename]
+		if duration ~= nil then
+			return duration
+		end
+	end	
+	return 0
 end
-
-function CWUtilities.SetShouldUseCasePressurization(value)
-	CWUtilities.SetRegisterValueAsBool(CWUtilities.REG_USE_CASE_PRESSURIZATION, value)
-end
-
 
 
 
